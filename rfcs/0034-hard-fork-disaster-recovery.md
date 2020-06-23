@@ -100,45 +100,59 @@ receives the command, it saves the following data:
         `staking_epoch_snapshot` and `previous_epoch_snapshot` (not implemented
 	    in the PR)
 
-Nodes running the upgraded software will have a new versions of
+  - the scan state at the root (unless this is the "unsafe" case, and we're
+     discarding the scan state)
 
- - genesis ledger
- - genesis proof
- - genesis timestamp
+    this is an instance of `Transaction_snark_scan_state.t`, retrievable via
 
-and so will start with an empty root history. In earlier discussions
-of hard forks, it was suggested that saving some length of root
-history might be needed. See issue #4859. Because all nodes will be
-starting from a new genesis state, they won't need to see any blocks
-that led to that state; hence the root history won't need to be
-persisted.
+	```ocaml
+      let full = Transition_frontier.full_frontier frontier in
+	  let protocol_states = full.protocol_states_for_root_scan_state in
+	  State_hash.find_exn protocol_states root_hash
+
+	```
+    where `root_hash` is the Merkle root of the SNARKed ledger. (? is that how this map works ?)
 
 The in-memory values (that is, those other than the epoch ledgers) can
 be serialized as JSON or S-expressions to some particular location,
 say `recovery_data` in the Coda configuration directory. The epoch
 ledgers can be copied to that same location.
 
-Before saving any data, the networking layer should be disabled, so that all data
-necessarily refers to the same state of the blockchain.
+Creating and gossipping a hard fork block
+-----------------------------------------
 
-Transforming saved state to startup data
-----------------------------------------
+When the hard fork occurs, a restarted daemon gossips a special block
+containing a new hard fork time, an epoch and slot. The type
+`Gossip_net.Latest.T.msg` can be updated with a new alternative, say
+`Last_fork_time`. Like an ordinary block, the special block contains a
+protocol state, to be verified by the blockchain SNARK.  The unsafe
+bits in an ordinary block are always `false`. In the special block,
+those bits may be `true`.
+
+In the case of a "safe" hard fork, where no unsafe bits are set, the
+hard fork block contains the root protocol state we saved and its
+proof. In the case of an unsafe hard fork, there can be a dummy proof.
+
+Like an ordinary block, the special block contains a current protocol
+version.  In the safe case, the patch version may be updated.  In the
+unsafe case, the major version or minor versions must be updated,
+forcing a software upgrade.
+
+Verifying the blockchain for ordinary blocks is done using `update`
+in the functor `Blockchain_snark.Blockchain_snark_state.Make`,
+which relies on a `Snark_transition.t` input derived from a block.
+For a hard fork, we'd write a new function that verifies that
+the protocol state is the same as the old state, except for
+those pieces indicated by unsafe bits.
+
+
+
+
 
 - use epoch ledgers in the same way we'd use persisted epoch ledgers
 - snarked ledger becomes new genesis ledger
    pass that ledger, and the protocol state to a variation on `Genesis_ledger_helper.Genesis_proof.generate_inputs`
     we have the `Protocol_state.value` already, don't need to calculate it
-
-
-
-======================================================================================
-
-
-This is the technical portion of the RFC. Explain the design in sufficient detail that:
-
-* Its interaction with other features is clear.
-* It is reasonably clear how the feature would be implemented.
-* Corner cases are dissected by example.
 
 ## Drawbacks
 [drawbacks]: #drawbacks
@@ -157,11 +171,8 @@ complex. That said, the cost of forgoing those preparations is high.
 ## Prior art
 [prior-art]: #prior-art
 
-Discuss prior art, both the good and the bad, in relation to this proposal.
+See RFCs 0032 and 0033 for how to handle the blockchain and scan state across
+hard forks.
 
 ## Unresolved questions
 [unresolved-questions]: #unresolved-questions
-
-* What parts of the design do you expect to resolve through the RFC process before this gets merged?
-* What parts of the design do you expect to resolve through the implementation of this feature before merge?
-* What related issues do you consider out of scope for this RFC that could be addressed in the future independently of the solution that comes out of this RFC?
