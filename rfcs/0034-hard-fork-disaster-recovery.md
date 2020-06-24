@@ -2,7 +2,9 @@
 [summary]: #summary
 
 This RFC explains how to a create a hard fork in response to a severe
-failure in the Coda network.
+failure in the Coda network. It draws on the strategies described
+in RFCs 0032 and 0033, which describe handling of the blockchain
+and scan state for hard forks.
 
 ## Motivation
 [motivation]: #motivation
@@ -22,18 +24,18 @@ developers will perform the following tasks:
  - on some node, run a CLI command to persist enough state to re-start the
     network
 
- - run a tool to transform the persisted state into startup data for the
+ - run a tool to transform the persisted state into data needed for the
     Coda binary
 
- - create a new Coda binary with a new major protocol version
+ - create a new Coda binary with a new protocol version
 
  - notify node operators of the change, and provide access to the new
-    binary and startup data
+    binary
 
-Other than the new protocol version and new startup data, the software
-should not require any other changes. The new startup data results in
-a new chain id, so the new software will require all node operators to
-upgrade.
+To remedy the problems that led to a failure, the Coda software will
+likely change in some significant way when the network is
+restarted. Using a new protocol version, with a new major or minor
+version, will require node operators to upgrade their software.
 
 CLI command to save state
 -------------------------
